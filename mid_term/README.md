@@ -1,4 +1,4 @@
 ## Socket-Programming
----
-####중간고사 공부
+
+#### MidTerm Part
 Socket programmin(Win)
