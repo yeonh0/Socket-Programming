@@ -8,18 +8,15 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <Windows.h>
+#include "ErrorHandling.h"
+#include "rcv.h"
 
-#pragma comment(lib, "ws2_32");
+#pragma comment(lib, "ws2_32")
 
 ////////////////////////////////////////////////////////////////////////////////
 // User Define
 #define BUFSIZE    100		// Buffer Size
 #define NAMESIZE   20		// Max Client
-
-////////////////////////////////////////////////////////////////////////////////
-// Function
-DWORD WINAPI rcv(LPVOID arg);
-void ErrorHandling(char* message);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main Function
@@ -100,33 +97,4 @@ int main(int argc, char* argv[])
 	closesocket(sock);
 	WSACleanup();
 	return 0;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Thread Function
-DWORD WINAPI rcv(LPVOID arg) {
-	// Local Variable
-	SOCKET sock = (SOCKET)arg;		// Client Socket
-	int str_len = 0;					// Message Length
-	char msg[BUFSIZE];					// Message Buffer
-
-	// While
-	while (1) {
-		str_len = recv(sock, msg, sizeof(msg), 0);
-		if (str_len == -1) ErrorHandling("Receiving Error!");
-		printf("%s\n", msg);
-	}
-
-	// Thread Exit
-	ExitThread(0);
-	return 0;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Error Handling Function
-void ErrorHandling(char* message)
-{
-	fputs(message, stderr);
-	fputc('\n', stderr);
-	exit(1);
 }
