@@ -1,22 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Header File
-#define _WINSOCK_DEPRECATED_NO_WARNINGS 
-#define _CRT_SECURE_NO_WARNINGS
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <Windows.h>
-#include "ErrorHandling.h"
-#include "rcv.h"
-
-#pragma comment(lib, "ws2_32")
-
-////////////////////////////////////////////////////////////////////////////////
-// User Define
-#define BUFSIZE    100		// Buffer Size
-#define NAMESIZE   20		// Max Client
+#include "client.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main Function
@@ -24,11 +8,9 @@ int main(int argc, char* argv[])
 {
 	// Local Variable
 	WSADATA wsa;								// WSA DATA
-	SOCKET sock;								// Create Server Socket
 	struct sockaddr_in servaddr;				// Cread Server SockAddr
 	HANDLE t_thread;							// Create Thread
 	int retval;									// Return Value
-
 	char chat[BUFSIZE];							// Create Chat Buffer
 	char msg[1000];								// Create Sending Message Buffer
 
@@ -61,23 +43,36 @@ int main(int argc, char* argv[])
 	// Send ID to Server !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	sprintf(msg, "%s", argv[3]);
 	send(sock, msg, strlen(msg) + 1, 0);
+	G_ID = argv[3];
+
+	// Set Ctrl+C handler
+	retval = SetConsoleCtrlHandler(CtrlHandler, TRUE);
+	if (!retval) ErrorHandling("SetConsoleCtrlHandler() Error!");
 
 	// Create Thread !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	t_thread = CreateThread(NULL, 0, rcv, (LPVOID)sock, 0, NULL);
 	if (t_thread == NULL) ErrorHandling("ERROR: Create Thread error!");
 
-
 	// While  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	while (1) {
 		// Get Message
-		fgets(chat, sizeof(chat), stdin);
+		retval = 0;
+		retval = fgets(chat, sizeof(chat), stdin);
 
 		// Remove Enter
+		int only_spaces = 1; // Assume the input is only spaces initially
 		for (int i = 0; chat[i] != 0; i++) {
+			if (chat[i] != ' ' && chat[i] != '\n') only_spaces = 0;
+
 			if (chat[i] == '\n') {
 				chat[i] = '\0';
 				break;
 			}
+		}
+
+		// Check if input is empty or only spaces
+		if (!retval || only_spaces) {
+			continue;
 		}
 
 		// quit
@@ -92,6 +87,7 @@ int main(int argc, char* argv[])
 		sprintf(msg, "[%s] : %s\n", argv[3], chat);
 		printf("\033[0;32m%s\033[0m", msg);
 		send(sock, msg, strlen(msg) + 1, 0);
+
 	}
 	// close socket
 	closesocket(sock);
