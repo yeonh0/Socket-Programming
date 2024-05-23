@@ -1,26 +1,6 @@
 // clnt_connection.c
-#define _WINSOCK_DEPRECATED_NO_WARNINGS 
-#define _CRT_SECURE_NO_WARNINGS
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <Windows.h>
-#include "ErrorHandling.h"
 #include "clnt_connection.h"
 
-#define BUFSIZE    1000		// Message Buffer Size
-
-////////////////////////////////////////////////////////////////////////////////
-// Global Var
-extern SOCKET g_clnt_socks[];  // Socket List
-extern int g_clnt_count;               // Client Count
-
-extern HANDLE hMutex;                  // Socket List Mutex
-
-////////////////////////////////////////////////////////////////////////////////
-// Thread Function
 DWORD WINAPI clnt_connection(LPVOID arg) {
 	// Local Variable
 	SOCKET clnt_sock = (SOCKET)arg;		// Client Socket
@@ -36,9 +16,6 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 	while (1) {
 		// Read Message from the Client
 		str_len = recv(clnt_sock, msg, sizeof(msg), 0);
-		if (str_len == SOCKET_ERROR) {
-			ErrorHandling("Reading error");
-		}
 
 		// Remove Enter
 		for (int i = 0; msg[i] != 0; i++) {
@@ -49,7 +26,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 		}
 
 		// break
-		if (strcmp(msg, "quit") == 0) {
+		if (strcmp(msg, "quit") == 0 || str_len == SOCKET_ERROR) {
 			sprintf(msg, "%s has left the room", id);
 			printf("%s\n", msg);
 			send_all_clnt(msg, clnt_sock);
