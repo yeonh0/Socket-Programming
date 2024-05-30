@@ -23,6 +23,15 @@ DWORD WINAPI rcv(LPVOID arg) {
 	while (1) {
 		str_len = recv(sock, msg, sizeof(msg), 0);
 		if (str_len == -1) exit(1);
+
+		// Remove Enter
+		for (int i = 0; msg[i] != 0; i++) {
+			if (msg[i] == '\n') {
+				msg[i] = '\0';
+				break;
+			}
+		}
+
 		printf("%s\n", msg);
 	}
 

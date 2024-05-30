@@ -77,13 +77,30 @@ int main(int argc, char* argv[])
 
 		// quit
 		if (strcmp(chat, "quit") == 0) {
-			sprintf(msg, "\033[0;35m%s has left the room\033[0m\n", argv[3]);
+			sprintf(msg, "\033[0;35m%s has left the room\033[0m\n", G_ID);
 			printf("%s", msg);
 			send(sock, chat, strlen(chat) + 1, 0);
 			break;
 		}
 
-		// Send
+		// Send to Someone (Whispering)
+		char whiprefix[] = "/w";	// whisper prefix : /w
+		// Check if message starts with /w
+		if (strncmp(chat, whiprefix, strlen(whiprefix)) == 0) {
+			char* id_ptr = strtok(chat, " ");
+			id_ptr = strtok(NULL, " ");							// *id_ptr = destination ID
+			char* msg_ptr = strtok(NULL, " ");					// *msg_ptr = message
+			if (id_ptr != NULL && msg_ptr != NULL) {			// whisper message : /w id msg
+				sprintf(msg, "whi %s %s", id_ptr, msg_ptr);
+				send(sock, msg, strlen(msg) + 1, 0);			// Send server "whi <id> <msg>"
+			}
+			else
+			// print right command of whisper
+				printf("\033[0;36mFail to send whisper! : /w <ID> <MSG>\n\033[0m");
+			continue;
+		}
+		
+		// Send to ALL
 		sprintf(msg, "[%s] : %s\n", argv[3], chat);
 		printf("\033[0;32m%s\033[0m", msg);
 		send(sock, msg, strlen(msg) + 1, 0);

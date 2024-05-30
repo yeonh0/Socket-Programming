@@ -24,7 +24,6 @@ void send_all_clnt(char* msg, SOCKET my_sock) {
 	WaitForSingleObject(hMutex, INFINITE);
 	for (int i = 0; i < g_clnt_count; i++) {
 		if (my_sock != g_clnt_socks[i]) {
-			printf("Send Message : %s\n", msg);
 			send(g_clnt_socks[i], msg, strlen(msg) + 1, 0);
 		}
 	}

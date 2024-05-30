@@ -10,7 +10,9 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 
 	// Get Client ID
 	recv(clnt_sock, id, sizeof(id), 0);
-	printf("%s join the room\n", id);
+	sprintf(msg, "%s join the room", id);
+	printf("%s\n", msg);
+	send_all_clnt(msg, clnt_sock);		// Send join msg to all clients
 
 	// while : Keep Reading Message
 	while (1) {
@@ -31,6 +33,23 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 			printf("%s\n", msg);
 			send_all_clnt(msg, clnt_sock);
 			break;
+		}
+
+		// Send Message to Someone (Whispering)
+		char whiprefix[] = "whi";
+		if (strncmp(msg, whiprefix, strlen(whiprefix)) == 0) {
+			char* id_ptr = strtok(msg, " ");
+			id_ptr = strtok(NULL, " ");
+			// if : check validity - *id_ptr is running?
+			char* msg_ptr = strtok(NULL, " ");
+
+			printf("%s -> %s : %s\n", id, id_ptr, msg_ptr);
+			char send_msg[300];
+			sprintf(send_msg, "\033[0;36m[Send to %s] : %s\033[0m", id_ptr, msg_ptr);
+			send_msg[strlen(send_msg)] = '\0';
+			send(clnt_sock, send_msg, strlen(send_msg) + 1, 0);			// send ACK to client 
+			// send to destination client
+			continue;
 		}
 
 		// Send Message to the ALL Clients & Print Message on the Server Program
