@@ -13,8 +13,9 @@ int main(int argc, char* argv[])
 	int retval;									// Return Value
 	char chat[BUFSIZE];							// Create Chat Buffer
 	char msg[1000];								// Create Sending Message Buffer
+	char id[50], pw[50];
 
-	int flag = 1;								// User Message Mode
+	int flag = 0;								// User Message Mode
 
 	char* id_ptr = NULL;
 	char* msg_ptr = NULL;
@@ -48,7 +49,6 @@ int main(int argc, char* argv[])
 
 	// Send ID to Server !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	sprintf(msg, "%s", argv[3]);
-	send(sock, msg, strlen(msg) + 1, 0);
 	G_ID = argv[3];
 
 	// Set Ctrl+C handler
@@ -89,40 +89,31 @@ int main(int argc, char* argv[])
 			break;
 		}
 
-		switch (flag) {
-		// Sign Up / Sign In
-		case 0:
+		// Send to Someone - whisper message : /w id msg
+		if (strncmp(chat, "/w", 2) == 0) {
+			tok_ptr = strtok(chat, " ");
+			tok_ptr = strtok(NULL, " ");
+			id_ptr = tok_ptr;
 
-		// Send Message
-		case 1:
-			// Send to Someone - whisper message : /w id msg
-			if (strncmp(chat, "/w", 2) == 0) {
-				tok_ptr = strtok(chat, " ");
-				tok_ptr = strtok(NULL, " ");
-				id_ptr = tok_ptr;
-
-				// No ID
-				if (id_ptr == NULL) {
-					printf("\033[0;36mFail to send whisper!(No ID) : /w <ID> <MSG>\n\033[0m");
-				}
-				else {			
-					msg_ptr = id_ptr + strlen(id_ptr) + 1;
-					if (strlen(msg_ptr) != 0) {
-						sprintf_s(msg, sizeof(msg), "whi %s %s", id_ptr, msg_ptr);
-						send(sock, msg, strlen(msg) + 1, 0);
-					}
-					else
-						printf("\033[0;36mFail to send whisper!(No Msg) : /w <ID> <MSG>\n\033[0m");
-				}
+			// No ID
+			if (id_ptr == NULL) {
+				printf("\033[0;36mFail to send whisper!(No ID) : /w <ID> <MSG>\n\033[0m");
 			}
-
-			// Send to ALL
-			else {
-				sprintf(msg, "msg [%s] : %s\n", argv[3], chat);
-				printf("\033[0;32m%s\033[0m", msg);
-				send(sock, msg, strlen(msg) + 1, 0);
+			else {			
+				msg_ptr = id_ptr + strlen(id_ptr) + 1;
+				if (strlen(msg_ptr) != 0) {
+					sprintf_s(msg, sizeof(msg), "whi %s %s", id_ptr, msg_ptr);
+					send(sock, msg, strlen(msg) + 1, 0);
+				}
+				else
+					printf("\033[0;36mFail to send whisper!(No Msg) : /w <ID> <MSG>\n\033[0m");
 			}
 		}
+		else {
+			//printf("\033[0;32m%s\033[0m\n", chat);
+			send(sock, chat, strlen(chat) + 1, 0);
+		}
+
 	}
 	// close socket
 	closesocket(sock);
