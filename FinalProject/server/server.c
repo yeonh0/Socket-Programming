@@ -50,9 +50,6 @@ int main(int argc, char* argv[])
 		clnt_sock = accept(serv_sock, (struct sockaddr*)&clntaddr, &clnt_addr_size);
 		if (clnt_sock == INVALID_SOCKET) ErrorHandling("ERROR: Client Socket Accepting error!");
 
-		// Print Information of the Clent
-		printf("Client Connect: %s:%d\n", inet_ntoa(clntaddr.sin_addr), ntohs(clntaddr.sin_port));
-
 		// Add Client Socket to Client Socket List
 		WaitForSingleObject(hMutex, INFINITE);
 		g_clnt_socks[g_clnt_count++] = clnt_sock;

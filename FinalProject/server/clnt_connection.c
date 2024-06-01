@@ -1,7 +1,8 @@
 // clnt_connection.c
 #include "clnt_connection.h"
+#include <time.h>
 
-int checkID(char* id) {
+int SIGNUP(char* id) {
 	int retval;
 	int buf[2000];				// UserInfo Data (ID, PW set)
 	char* tok_ptr = NULL;
@@ -32,24 +33,59 @@ int checkID(char* id) {
 	return 0;
 }
 
+int SIGNIN(char* id, char* pw) {
+	int retval;
+	int signinbuf[2000];				// UserInfo Data (ID, PW set)
+	char* tok_ptr = NULL;
+	char* id_ptr = NULL;
+	char* pw_ptr = NULL;
+
+	// ID or PW has Space or Too long - return 1
+	if (strchr(id, ' ') != NULL || strlen(id) > 15 || strchr(pw, ' ') != NULL || strlen(pw) > 15)
+		return 1;
+
+	// Open UserInfo File
+	FILE* file = fopen("info.txt", "r");
+	if (file == NULL) {
+		fprintf(stderr, "Could not open info.txt for reading\n");
+		return 1;
+	}
+
+	char line[256];
+
+	while (fgets(line, sizeof(line), file)) {
+		// Remove newline character if present
+		line[strcspn(line, "\n")] = 0;
+
+		// Split the line into id and pw based on the first space
+		char* id_ptr = strtok(line, " ");
+		char* pw_ptr = strtok(NULL, " ");
+
+		if (id_ptr && pw_ptr) {
+			if ((strcmp(id, id_ptr) == 0) && (strcmp(pw, pw_ptr) == 0)) {
+				return 2;
+			}
+		}
+	}
+
+	fclose(file);
+	return 1;
+}
+
 DWORD WINAPI clnt_connection(LPVOID arg) {
 	// Local Variable
 	SOCKET clnt_sock = (SOCKET)arg;		// Client Socket
 	int str_len = 0;					// Message Length
 	char msg[BUFSIZE];					// Message Buffer
+	char chat[BUFSIZE];
 	char id[100], pw[100];				// Client ID, PW
 	int retval;
+	
 	FILE* fp;
-
-	char* prefix_ptr;
 	char* id_ptr = NULL;				// Whisper Dest, Msg, idchk
 	char* pw_ptr = NULL;
 	char* msg_ptr = NULL;
-
 	char* tok_ptr = NULL;
-
-	char whisper_msg[300];
-	char clientinfo[30];
 
 	// while : Keep Reading Message
 	while (1) {
@@ -72,7 +108,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 			// Check ID
 			if (recv(clnt_sock, id, sizeof(id), 0) == SOCKET_ERROR || strcmp(id, "quit") == 0)
 				break;
-			retval = checkID(id);
+			retval = SIGNUP(id);
 
 			// Wrong ID 
 			if (retval == 1) {
@@ -87,7 +123,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				send(clnt_sock, msg, strlen(msg) + 1, 0);
 				continue;
 			}
-			
+
 			// Get PW - Read Message from the Client
 			sprintf(msg, "\033[0;36m[SYSTEM]Sign Up - Enter PW\033[0m");
 			send(clnt_sock, msg, strlen(msg) + 1, 0);
@@ -111,80 +147,104 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				printf("File Open Error!\n");
 				break;
 			}
-			if (fprintf(fp, "%s %s\n", id, pw) < 0) {
+			if (fprintf(fp, "\n%s %s", id, pw) < 0) {
 				printf("Failed to write to file");
 				fclose(fp);
 				return 1;
 			}
 			fclose(fp);
+			continue;
 		}
-			
+
 		// 1-2 : sign in
-		if (strcmp(msg, "1") == 0) {
+		else if (strcmp(msg, "2") == 0) {
+
+			// Get ID, PW - Read Message from the Client
 			sprintf(msg, "\033[0;36m[SYSTEM]Sign In - Enter ID\033[0m");
 			send(clnt_sock, msg, strlen(msg) + 1, 0);
-
-			// Get ID
 			if (recv(clnt_sock, id, sizeof(id), 0) == SOCKET_ERROR || strcmp(id, "quit") == 0)
 				break;
+
+			sprintf(msg, "\033[0;36m[SYSTEM]Sign In - Enter PW\033[0m");
+			send(clnt_sock, msg, strlen(msg) + 1, 0);
+			if (recv(clnt_sock, pw, sizeof(pw), 0) == SOCKET_ERROR || strcmp(pw, "quit") == 0)
+				break;
+
+			// Check ID & PW
+			retval = SIGNIN(id, pw);
+
+			// Incorrect ID PW
+			if (retval == 1) {
+				sprintf(msg, "\033[0;36m[SYSTEM]Sign In - Failed\033[0m");
+				send(clnt_sock, msg, strlen(msg) + 1, 0);
+				continue;
+			}
+
+			// Incorrect ID PW
+			if (retval == 2) {
+				sprintf(msg, "\033[0;34m[SYSTEM]Hello %s. Enter Message.\033[0m", id);
+				send(clnt_sock, msg, strlen(msg) + 1, 0);
+				sprintf(msg, "\033[0;36m%s join chat room\033[0m", id);
+				printf("%s\n", msg);
+				send_all_clnt(msg, clnt_sock);
+			}
+
 		}
-		/*
 
-		// prefix parsing
-		prefix_ptr = strtok(msg, " ");
+		// msg : only 1 / 2
+		else
+			continue;
 
-		// Send Message to the ALL Clients
-		if (strcmp(prefix_ptr, "msg") == 0) {
-			send_all_clnt(msg+4, clnt_sock);
-			printf("%s\n", msg+4);
-		}
 
-		// Send Message to the specific Client
-		else if (strcmp(prefix_ptr, "whi") == 0) {
-			prefix_ptr = strtok(NULL, " ");
-			id_ptr = prefix_ptr;
-			msg_ptr = id_ptr + strlen(id_ptr) + 1;
+		// 2 : message
+		while (1) {
+			// rcv Message
+			if (recv(clnt_sock, msg, sizeof(msg), 0) == SOCKET_ERROR || strcmp(msg, "quit") == 0)
+				break;
+			msg[strlen(msg)] = '\0';
 
-			printf("%s -> %s : %s\n", id, id_ptr, msg_ptr);
-			sprintf(whisper_msg, "\033[0;36m[Send to %s] : %s\033[0m", id_ptr, msg_ptr);
-			whisper_msg[strlen(whisper_msg)] = '\0';
-			send(clnt_sock, whisper_msg, strlen(whisper_msg) + 1, 0);			// send ACK to client 
-			// send to destination client
-		}
+			// whisper mode
+			if (strncmp(msg, "whi", 3) == 0) {
+				tok_ptr = strtok(msg, " ");
+				id_ptr = strtok(NULL, " ");
+				msg_ptr = strtok(NULL, " ");
+				printf("%s, %s\n", id_ptr, msg_ptr);
+				continue;
+			}
 
-		// Check ID Duplication
-		else if (strcmp(prefix_ptr, "idchk") == 0) {
-			strcpy(id, msg+6);
-			// Duplication func
-			FILE* fp = fopen("info.txt", "r");
-			retval = fread(msg, sizeof(char), sizeof(msg), fp);
+			// send to all client
+			sprintf(chat, "[%s] : %s", id, msg);
+			send_all_clnt(chat, clnt_sock);
+			printf("%s\n", chat);
+
+			// Open chat File
+			if ((fp = fopen("chat.txt", "a")) == NULL) {
+				printf("File Open Error!\n");
+				break;
+			}
+
+			// Write chat
+			time_t t;
+			time(&t);
+			char time_str[26];
+			struct tm* tm_info = localtime(&t);
+			strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+
+			if (fprintf(fp, "[%s] %s\n", time_str, chat) < 0) {
+				printf("Failed to write to file");
+				fclose(fp);
+				return 1;
+			}
 			fclose(fp);
-			msg[retval - 1] = '\0';
-			msg[retval] = '\0';
 
-			// Enter Tokenizer
-			tok_ptr = strtok(msg, "\n");
-			int chkflag = 0;
-			while (tok_ptr != NULL) {
-				str_len = strlen(tok_ptr);
-				id_ptr = strtok(tok_ptr, " ");
-				tok_ptr = strtok(tok_ptr + str_len +1, "\n");
-				if (strcmp(id_ptr, id) == 0) {
-					// Send Message - ID Duplicated
-					sprintf(msg, "\033[0;36m[SYSTEM] Duplicated ID - %s!\033[0m", id);
-					send(clnt_sock, msg, strlen(msg) + 1, 0);
-					sprintf(msg, "\033[0;36m[SYSTEM] Sign In : 1, Sign Up : 2\033[0m");
-					send(clnt_sock, msg, strlen(msg) + 1, 0);
-					chkflag = 1;
-					break;
-				}
-			}
-
-			if (!chkflag) {
-				printf("Successfully Registred!\n");
-			}
+			// send to speaker client
+			sprintf(chat, "\033[0;36m[%s] : %s\033[0m", id, msg);
+			send(clnt_sock, chat, strlen(chat) + 1, 0);
 		}
-		*/
+		// Log Out
+		sprintf(msg, "\033[0;35m[%s] has left chat room\033[0m", id);
+		printf("%s\n", msg);
+		send_all_clnt(msg, clnt_sock);
 	}
 
 	// Remove the client socket from the socket list
@@ -206,31 +266,3 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 	ExitThread(0);
 	return 0;
 }
-
-
-
-/*
-// Get Client ID
-recv(clnt_sock, id, sizeof(id), 0);
-sprintf(msg, "%s join the room", id);
-printf("%s\n", msg);
-send_all_clnt(msg, clnt_sock);		// Send join msg to all clients*/
-
-/*
-FILE* fp = fopen("info.txt", "a");
-sprintf(clientinfo, "%s:%d", inet_ntoa(clntaddr.sin_addr), ntohs(clntaddr.sin_port));
-printf("%s\n", clientinfo);
-fputs(clientinfo, fp);
-fputc('\n', fp);
-fclose(fp);
-*/
-
-/*
-		// break
-		if (strcmp(msg, "quit") == 0 || str_len == SOCKET_ERROR) {
-			sprintf(msg, "%s has left the room", id);
-			printf("%s\n", msg);
-			send_all_clnt(msg, clnt_sock);
-			break;
-		}
-*/
