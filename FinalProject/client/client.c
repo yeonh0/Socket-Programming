@@ -83,8 +83,8 @@ int main(int argc, char* argv[])
 
 		// quit
 		if (strcmp(chat, "quit") == 0) {
-			sprintf(msg, "\033[0;35m%s has left the room\033[0m\n", G_ID);
-			printf("%s", msg);
+			sprintf(msg, "\033[0;35mLOG OUT. GOOD BYE\033[0m");
+			printf("%s\n", msg);
 			send(sock, chat, strlen(chat) + 1, 0);
 			break;
 		}
