@@ -1,7 +1,5 @@
 // ErrorHandling.c
 #include "ErrorHandling.h"
-#include <stdio.h>
-#include <stdlib.h>
 
 // Error Handling Function
 void ErrorHandling(const char* message)

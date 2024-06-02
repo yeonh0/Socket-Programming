@@ -13,9 +13,6 @@ int main(int argc, char* argv[])
 	int retval;									// Return Value
 	char chat[BUFSIZE];							// Create Chat Buffer
 	char msg[1000];								// Create Sending Message Buffer
-	char id[50], pw[50];
-
-	int flag = 0;								// User Message Mode
 
 	char* id_ptr = NULL;
 	char* msg_ptr = NULL;
@@ -83,7 +80,7 @@ int main(int argc, char* argv[])
 
 		// quit
 		if (strcmp(chat, "quit") == 0) {
-			sprintf(msg, "\033[0;35mLOG OUT. GOOD BYE\033[0m");
+			sprintf(msg, "\033[0;35mGOOD BYE\033[0m");
 			printf("%s\n", msg);
 			send(sock, chat, strlen(chat) + 1, 0);
 			break;

@@ -2,13 +2,11 @@
 #include "CtrlHandler.h"
 
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
-    char msg[30];
-    char chat[] = "quit";
+    char msg[40];
     switch (fdwCtrlType) {
     case CTRL_C_EVENT:
-        sprintf(msg, "\033[0;35m%s has left the room\033[0m\n", G_ID);
-        printf("%s", msg);
-        send(sock, chat, strlen(chat) + 1, 0);
+        sprintf(msg, "\033[0;35mGOOD BYE\033[0m");
+        printf("%s\n", msg);
         closesocket(sock);
         WSACleanup();
         exit(0);
