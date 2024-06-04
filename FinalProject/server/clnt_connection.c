@@ -16,9 +16,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 	struct tm* tm_info;
 
 	char* id_ptr = NULL;				// Whisper Dest, Msg, idchk
-	char* pw_ptr = NULL;
 	char* msg_ptr = NULL;
-	char* tok_ptr = NULL;
 
 	// while : Keep Reading Message
 	while (1) {
@@ -115,16 +113,20 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 
 			// Correct ID PW
 			if (retval == 2) {
+				retval = 0;
 				// Check Duplicate Connecting
 				WaitForSingleObject(hMutex, INFINITE);
 				for (int i = 0; i < g_log_count; i++) {
 					if (strcmp(id, g_connect_list[i].con_id) == 0) {
 						sprintf(msg, "\033[0;36m[SYSTEM]Account is already being linked\033[0m");
 						send(clnt_sock, msg, strlen(msg) + 1, 0);
-						continue;
+						retval = 1;
+						break;
 					}
 				}
 				ReleaseMutex(hMutex);
+
+				if (retval == 1) continue;
 
 				sprintf(msg, "\033[0;34m[SYSTEM]Hello %s. Enter Message.\033[0m", id);
 				send(clnt_sock, msg, strlen(msg) + 1, 0);
@@ -156,7 +158,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 
 			// whisper mode
 			if (strncmp(msg, "whi", 3) == 0) {
-				tok_ptr = strtok(msg, " ");
+				strtok(msg, " ");
 				id_ptr = strtok(NULL, " ");
 				msg_ptr = id_ptr + strlen(id_ptr) + 1;
 

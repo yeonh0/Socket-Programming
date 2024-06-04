@@ -3,8 +3,6 @@
 
  int SIGNIN(char* id, char* pw) {
 	int retval;
-	int signinbuf[2000];				// UserInfo Data (ID, PW set)
-	char* tok_ptr = NULL;
 	char* id_ptr = NULL;
 	char* pw_ptr = NULL;
 
