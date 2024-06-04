@@ -36,10 +36,13 @@ HANDLE hMutex;					// Socket List Mutex
 typedef struct {
 	char con_id[30];								// Connect Clients List
 	SOCKET con_sock;
+	int roomnum;
 } connect_list;
 
 struct connect_list g_connect_list[300];			// Connect Clients List
 
 int g_log_count = 0;			// Login Client Count
+
+int g_room_count = 0;                     // Room Count
 
 #endif // SERVER_H

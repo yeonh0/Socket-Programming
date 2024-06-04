@@ -145,6 +145,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 		WaitForSingleObject(hMutex, INFINITE);
 		strcpy(g_connect_list[g_log_count].con_id, id);
 		g_connect_list[g_log_count].con_sock = clnt_sock;
+		g_connect_list[g_log_count].roomnum = 0;
 		printf("New : %s, total : %d\n", g_connect_list[g_log_count].con_id, g_log_count+1);
 		g_log_count++;
 		ReleaseMutex(hMutex);
@@ -181,9 +182,94 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				continue;
 			}
 
-			// send to all client
+			// Make Room
+			if (strncmp(msg, "mkrm", 4) == 0) {
+				retval = 0;
+				// mkrm hihi
+				strtok(msg, " ");
+				id_ptr = strtok(NULL, " ");					// room num
+
+				// check duplicate room & room count
+				WaitForSingleObject(hMutex, INFINITE);
+				for (int i = 0; i < g_room_count; i++) {
+					if ((strcmp(id_ptr, g_room_name[i]) == 0) || g_room_count == MAXROOM) {
+						// Destination Client Log in - Send Msg
+						sprintf(chat, "\033[0;36mCan Not Make Room!\033[0m");
+						send(clnt_sock, chat, strlen(chat) + 1, 0);
+						retval = 1;
+						break;
+					}
+				}
+				ReleaseMutex(hMutex);
+
+				if (retval == 1) continue;
+
+				// Make Room : name id_ptr
+				WaitForSingleObject(hMutex, INFINITE);
+				strcpy(g_room_name[g_room_count], id_ptr);
+				g_room_count++;
+				sprintf(chat, "\033[0;36mRoom %s is opened. Total Room : %d\033[0m", id_ptr, g_room_count);
+				ReleaseMutex(hMutex);
+				send(clnt_sock, chat, strlen(chat) + 1, 0);
+				continue;
+			}
+
+			// Search Room
+			if (strncmp(msg, "srrm", 4) == 0) {
+				// check duplicate room & room count
+				WaitForSingleObject(hMutex, INFINITE);
+				sprintf(chat, "\033[0;36mTotal Room(%d) : ", g_room_count);
+
+				for (int i = 0; i < g_room_count; i++) {
+					strcat(chat, g_room_name[i]);
+
+					if (i < g_room_count - 1) {
+						strcat(chat, ", ");
+					}
+				}
+				strcat(chat, "\033[0m");
+				ReleaseMutex(hMutex);
+
+				if(g_room_count > 0)
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+
+				continue;
+			}
+
+			// 없는 방에 join 프린트 안나오게, 방 이름 rule 설정하기
+			// 그냥 prefix 없는 메시지는 채팅방 내로 전송하기
+			// Join Room
+			if (strncmp(msg, "goto", 4) == 0) {
+				// find room exist
+				strtok(msg, " ");
+				id_ptr = strtok(NULL, " ");					// room num
+
+				WaitForSingleObject(hMutex, INFINITE);
+				for (int i = 0; i < g_room_count; i++) {
+					if (strcmp(id_ptr, g_room_name[i]) == 0) {
+						retval = i;
+						break;
+					}
+				}
+
+				for (int i = 0; i < g_log_count; i++) {
+					if (strcmp(id, g_connect_list[i].con_id) == 0) {
+						g_connect_list[i].roomnum = retval;
+						sprintf(chat, "\033[0;36mJOIN : %s\033[0m", g_room_name[g_connect_list[i].roomnum]);
+						send(clnt_sock, chat, strlen(chat) + 1, 0);
+					}
+				}
+
+				ReleaseMutex(hMutex);
+				continue;
+			}
+
 			sprintf(chat, "[%s] : %s", id, msg);
-			send_all_clnt(chat, clnt_sock);
+
+			// send to all client
+			if (strncmp(msg, "toall", 5) == 0) {
+				send_all_clnt(chat, clnt_sock);
+			}
 			printf("%s\n", chat);
 
 			// Open chat File

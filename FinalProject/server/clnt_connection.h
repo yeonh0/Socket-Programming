@@ -16,6 +16,8 @@
 #include "ErrorHandling.h"
 
 #define BUFSIZE    1000		// Message Buffer Size
+#define MAXROOM    10          // Max Room Count
+#define ROOMNAME_LEN 30         // Max Room Name Length
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global Var
@@ -24,13 +26,19 @@ extern int g_clnt_count;							// Client Count
 extern int g_log_count;								// Client Count
 
 typedef struct connect_list {
-	char con_id[30];							// Connect Clients List
+	char con_id[30];								// Connect Clients List
 	SOCKET con_sock;
+	int roomnum;
 };
 
-struct connect_list g_connect_list[300];		// Connect Clients List
+struct connect_list g_connect_list[300];			// Connect Clients List
 
 extern HANDLE hMutex;								// Socket List Mutex
+
+// Room management
+char g_room_name[MAXROOM][ROOMNAME_LEN];			// Room names
+
+extern int g_room_count;
 
 DWORD WINAPI clnt_connection(LPVOID arg);
 
