@@ -18,6 +18,10 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 	char* id_ptr = NULL;				// Whisper Dest, Msg, idchk
 	char* msg_ptr = NULL;
 
+	char joinmsg[BUFSIZE];
+	int roomnum_client = 100;
+	char roomname_client[30];
+
 	// while : Keep Reading Message
 	while (1) {
 		// 1 : sign up, 2 : sign in
@@ -145,19 +149,19 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 		WaitForSingleObject(hMutex, INFINITE);
 		strcpy(g_connect_list[g_log_count].con_id, id);
 		g_connect_list[g_log_count].con_sock = clnt_sock;
-		g_connect_list[g_log_count].roomnum = 0;
+		g_connect_list[g_log_count].roomnum = 100;
 		printf("New : %s, total : %d\n", g_connect_list[g_log_count].con_id, g_log_count+1);
 		g_log_count++;
 		ReleaseMutex(hMutex);
 
 		// 2 : message
 		while (1) {
-			// rcv Message
+			// 2-0. rcv Message
 			if (recv(clnt_sock, msg, sizeof(msg), 0) == SOCKET_ERROR || strcmp(msg, "quit") == 0)
 				break;
 			msg[strlen(msg)] = '\0';
 
-			// whisper mode
+			// 2-1. Whisper Mode
 			if (strncmp(msg, "whi", 3) == 0) {
 				strtok(msg, " ");
 				id_ptr = strtok(NULL, " ");
@@ -182,19 +186,27 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				continue;
 			}
 
-			// Make Room
+			// 2-2. Chat Room Options - (1) Make Room, (2) Search Room, (3) Join Room
+			// (1). Make Room
 			if (strncmp(msg, "mkrm", 4) == 0) {
 				retval = 0;
 				// mkrm hihi
 				strtok(msg, " ");
 				id_ptr = strtok(NULL, " ");					// room num
 
+				// room name check 
+				if (id_ptr == NULL || strlen(id_ptr) > 15) {
+					sprintf(chat, "\033[0;36mInvalid Room Name!\033[0m");
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+					continue;
+				}
+
 				// check duplicate room & room count
 				WaitForSingleObject(hMutex, INFINITE);
 				for (int i = 0; i < g_room_count; i++) {
 					if ((strcmp(id_ptr, g_room_name[i]) == 0) || g_room_count == MAXROOM) {
 						// Destination Client Log in - Send Msg
-						sprintf(chat, "\033[0;36mCan Not Make Room!\033[0m");
+						sprintf(chat, "\033[0;36mCan Not Make Room! (Total Room : %d)\033[0m", g_room_count);
 						send(clnt_sock, chat, strlen(chat) + 1, 0);
 						retval = 1;
 						break;
@@ -214,7 +226,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				continue;
 			}
 
-			// Search Room
+			// (2). Search Room
 			if (strncmp(msg, "srrm", 4) == 0) {
 				// check duplicate room & room count
 				WaitForSingleObject(hMutex, INFINITE);
@@ -230,21 +242,21 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				strcat(chat, "\033[0m");
 				ReleaseMutex(hMutex);
 
-				if(g_room_count > 0)
-					send(clnt_sock, chat, strlen(chat) + 1, 0);
+				send(clnt_sock, chat, strlen(chat) + 1, 0);
 
 				continue;
 			}
 
-			// 없는 방에 join 프린트 안나오게, 방 이름 rule 설정하기
-			// 그냥 prefix 없는 메시지는 채팅방 내로 전송하기
-			// Join Room
+			// (3). Join Room
 			if (strncmp(msg, "goto", 4) == 0) {
+				retval = -1;
 				// find room exist
 				strtok(msg, " ");
 				id_ptr = strtok(NULL, " ");					// room num
 
 				WaitForSingleObject(hMutex, INFINITE);
+				
+				// If id_ptr is exist : retval = room num
 				for (int i = 0; i < g_room_count; i++) {
 					if (strcmp(id_ptr, g_room_name[i]) == 0) {
 						retval = i;
@@ -252,26 +264,89 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 					}
 				}
 
-				for (int i = 0; i < g_log_count; i++) {
-					if (strcmp(id, g_connect_list[i].con_id) == 0) {
-						g_connect_list[i].roomnum = retval;
-						sprintf(chat, "\033[0;36mJOIN : %s\033[0m", g_room_name[g_connect_list[i].roomnum]);
-						send(clnt_sock, chat, strlen(chat) + 1, 0);
+				// If room exist : change client roomnum, find room member
+				if (retval != -1) {
+					roomnum_client = retval;
+					sprintf(joinmsg, "\033[0;36mJoin Member : ");
+					for (int i = 0; i < g_log_count; i++) {
+
+						// Change Client Room Num
+						if (strcmp(id, g_connect_list[i].con_id) == 0) {
+							g_connect_list[i].roomnum = retval;
+							sprintf(chat, "\033[0;36mJOIN into Room - %s\033[0m", g_room_name[g_connect_list[i].roomnum]);
+							send(clnt_sock, chat, strlen(chat) + 1, 0);
+							strcpy(roomname_client, g_room_name[g_connect_list[i].roomnum]);
+						}
+
+						// Room Member Find
+						if (g_connect_list[i].roomnum == retval) {
+							strcat(joinmsg, g_connect_list[i].con_id);
+							strcat(joinmsg, " ");
+						}
 					}
+					strcat(joinmsg, "\033[0m");
+					send(clnt_sock, joinmsg, strlen(joinmsg) + 1, 0);
 				}
 
+				// If room doesn't exist
+				else {
+					sprintf(chat, "\033[0;36mRoom %s Doesn't Exist!\033[0m", id_ptr);
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+				}
 				ReleaseMutex(hMutex);
 				continue;
 			}
 
-			sprintf(chat, "[%s] : %s", id, msg);
+			// 3. Chat mode
+			// (1). Send ALL - Prefix = 'toall' or Not yet Joining Any Room
 
-			// send to all client
+			// prefix = toall or not join room : send to all client
 			if (strncmp(msg, "toall", 5) == 0) {
-				send_all_clnt(chat, clnt_sock);
-			}
-			printf("%s\n", chat);
+				id_ptr = strtok(msg, " ");
+				msg_ptr = id_ptr + 6;
 
+				if (msg_ptr != NULL) {
+					sprintf(chat, "\033[0;33m[%s] : %s\033[0m", id, msg_ptr);
+					send_all_clnt(chat, clnt_sock);
+					printf("%s\n", chat);
+				}
+
+				// send to speaker client
+				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg_ptr);
+				send(clnt_sock, chat, strlen(chat) + 1, 0);
+			}
+
+			// yet join room
+			else if (roomnum_client == 100) {
+				sprintf(chat, "\033[0;33m[%s] : %s\033[0m", id, msg);
+				send_all_clnt(chat, clnt_sock);
+				printf("%s\n", chat);
+
+				// send to speaker client
+				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg);
+				send(clnt_sock, chat, strlen(chat) + 1, 0);
+			}
+
+			// (2). else : send to room members
+			else {
+				sprintf(chat, "\033[0;35m[%s] : %s\033[0m", id, msg);
+				printf("%s - %s\n", roomname_client, chat);
+
+				WaitForSingleObject(hMutex, INFINITE);
+				for (int i = 0; i < g_log_count; i++) {
+					// If not this client program and same room number
+					if (clnt_sock != g_connect_list[i].con_sock && g_connect_list[i].roomnum == roomnum_client) {
+						send(g_clnt_socks[i], chat, strlen(chat) + 1, 0);
+					}
+				}
+				ReleaseMutex(hMutex);
+
+				// send to speaker client
+				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg);
+				send(clnt_sock, chat, strlen(chat) + 1, 0);
+			}
+
+			// 4. Save Chat Data
 			// Open chat File
 			if ((fp = fopen("chat.txt", "a")) == NULL) {
 				printf("File Open Error!\n");
@@ -289,12 +364,8 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				return 1;
 			}
 			fclose(fp);
-
-			// send to speaker client
-			sprintf(chat, "\033[0;36m[%s] : %s\033[0m", id, msg);
-			send(clnt_sock, chat, strlen(chat) + 1, 0);
 		}
-		// Log Out
+		// 5. Log Out
 		if(id != NULL) {
 			sprintf(msg, "\033[0;35m[%s] has left chat room\033[0m", id);
 			printf("%s\n", msg);
