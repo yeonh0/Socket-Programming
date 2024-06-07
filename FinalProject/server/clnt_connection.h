@@ -14,6 +14,7 @@
 #include <Windows.h>
 #include <time.h>
 #include "ErrorHandling.h"
+#include "recommend_topic.h"
 
 #define BUFSIZE    1000		// Message Buffer Size
 #define MAXROOM    10          // Max Room Count

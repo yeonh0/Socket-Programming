@@ -297,40 +297,69 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 				continue;
 			}
 
+
 			// 3. Chat mode
 			// (1). Send ALL - Prefix = 'toall' or Not yet Joining Any Room
 
 			// prefix = toall or not join room : send to all client
 			if (strncmp(msg, "toall", 5) == 0) {
 				id_ptr = strtok(msg, " ");
-				msg_ptr = id_ptr + 6;
+				msg_ptr = strtok(NULL, ""); // "toall" 이후의 모든 문자열
 
-				if (msg_ptr != NULL) {
+				if (msg_ptr != NULL && strlen(msg_ptr) > 0) {
 					sprintf(chat, "\033[0;33m[%s] : %s\033[0m", id, msg_ptr);
 					send_all_clnt(chat, clnt_sock);
 					printf("%s\n", chat);
-				}
 
-				// send to speaker client
-				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg_ptr);
-				send(clnt_sock, chat, strlen(chat) + 1, 0);
+					// send to speaker client
+					sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg_ptr);
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+				}
+				continue;
 			}
 
 			// yet join room
 			else if (roomnum_client == 100) {
-				sprintf(chat, "\033[0;33m[%s] : %s\033[0m", id, msg);
-				send_all_clnt(chat, clnt_sock);
-				printf("%s\n", chat);
-
 				// send to speaker client
 				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg);
 				send(clnt_sock, chat, strlen(chat) + 1, 0);
+				sprintf(chat, "\033[0;33m[%s] : %s\033[0m", id, msg);
+
+				send_all_clnt(chat, clnt_sock);
+				printf("%s\n", chat);
 			}
 
 			// (2). else : send to room members
 			else {
-				sprintf(chat, "\033[0;35m[%s] : %s\033[0m", id, msg);
-				printf("%s - %s\n", roomname_client, chat);
+				// Recommend
+				if (strncmp(msg, "talk", 4) == 0) {
+					const char* topic;
+					if (strncmp(msg, "talk kor", 8) == 0) {
+						topic = recommend_topic(1);  // Korean
+					}
+					else if (strncmp(msg, "talk eng", 8) == 0) {
+						topic = recommend_topic(0);  // English
+					}
+					else if (strncmp(msg, "talk esp", 8) == 0) {
+						topic = recommend_topic(2);  // Spanish
+					}
+					else {
+						sprintf(chat, "\033[0;31m[SYSTEM] : Invalid input. Use 'talk kor', 'talk eng', or 'talk esp'.\033[0m");
+						send(clnt_sock, chat, strlen(chat) + 1, 0);
+						continue;
+					}
+					sprintf(chat, "\033[0;35m[SYSTEM] : How about talking about \"%s\"?\033[0m", topic);
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+					printf("%s\n", chat);
+				}
+				else {
+					// send to speaker client
+					sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg);
+					send(clnt_sock, chat, strlen(chat) + 1, 0);
+
+					sprintf(chat, "\033[0;35m[%s] : %s\033[0m", id, msg);
+					printf("%s - %s\n", roomname_client, chat);
+				}
 
 				WaitForSingleObject(hMutex, INFINITE);
 				for (int i = 0; i < g_log_count; i++) {
@@ -340,10 +369,6 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 					}
 				}
 				ReleaseMutex(hMutex);
-
-				// send to speaker client
-				sprintf(chat, "\033[0;32m[%s] : %s\033[0m", id, msg);
-				send(clnt_sock, chat, strlen(chat) + 1, 0);
 			}
 
 			// 4. Save Chat Data
@@ -358,7 +383,7 @@ DWORD WINAPI clnt_connection(LPVOID arg) {
 			tm_info = localtime(&t);
 			strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
-			if (fprintf(fp, "[%s] %s\n", time_str, chat) < 0) {
+			if (fprintf(fp, "[%s] [%s] %s\n", time_str, id, msg) < 0) {
 				printf("Failed to write to file");
 				fclose(fp);
 				return 1;
